@@ -1,0 +1,35 @@
+    expected: v == 1000 + i  (i=64 got 1004)
+[FAIL] ringbuf_fifo
+1 test(s), 1 failed
+[PASS] ringbuf_overwrite
+1 test(s), 0 failed
+    expected: y == 3000  (avg of 3000s = 952)
+[FAIL] filter_constant
+1 test(s), 1 failed
+    expected: y == 4095  (avg of 4095s = 2047)
+[FAIL] filter_fullscale
+1 test(s), 1 failed
+    expected: thermo_adc_to_x10(0, &t) == -1  (adc=0 must be a fault)
+[FAIL] thermo_fault
+1 test(s), 1 failed
+    max error 0.1 C at adc=142
+[PASS] thermo_accuracy
+1 test(s), 0 failed
+    expected: alarm_update(-80) == 0  (-8.0 C raised alarm)
+[FAIL] alarm_negative_temp
+1 test(s), 1 failed
+    expected: alarm_update(390) == 0  (must stay clear inside band)
+[FAIL] alarm_hysteresis
+1 test(s), 1 failed
+[PASS] cmd_set_valid
+1 test(s), 0 failed
+    expected: cmd_process("SET abc", resp, sizeof resp) == -1  (garbage accepted)
+[FAIL] cmd_set_garbage
+1 test(s), 1 failed
+    expected: cmd_process("SET 200", resp, sizeof resp) == -1  (200 C accepted)
+[FAIL] cmd_set_range
+1 test(s), 1 failed
+*** buffer overflow detected ***: terminated
+[PASS] cmd_get
+1 test(s), 0 failed
+*** buffer overflow detected ***: terminated

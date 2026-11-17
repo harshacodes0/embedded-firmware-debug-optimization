@@ -1,0 +1,62 @@
+=== v1_buggy -O2: main() wait loop
+00000324 <main>:
+     324:	stmdb	sp!, {r4, r5, r6, r7, r8, lr}
+     328:	bl	528 <hal_init>
+     32c:	bl	7c <app_init>
+     330:	ldr	r0, [pc, #128]	@ (3b4 <main+0x90>)
+     332:	bl	53c <hal_uart_puts>
+     336:	movs	r4, #0
+     338:	bl	570 <hal_timer_read>
+     33c:	mov	r6, r4
+     33e:	mov	r7, r0
+     340:	ldr	r5, [pc, #116]	@ (3b8 <main+0x94>)
+     342:	ldrb	r3, [r5, #0]
+     344:	cbnz	r3, 348 <main+0x24>
+     346:	b.n	346 <main+0x22>
+     348:	mov	r0, r4
+     34a:	movs	r1, #0
+     34c:	adds	r4, #1
+     34e:	strb	r6, [r5, #0]
+     350:	bl	94 <app_step>
+     354:	cmp.w	r4, #512	@ 0x200
+     358:	bne.n	342 <main+0x1e>
+     35a:	bl	570 <hal_timer_read>
+     35e:	mov	r4, r0
+     360:	ldr	r0, [pc, #88]	@ (3bc <main+0x98>)
+     362:	bl	53c <hal_uart_puts>
+     366:	subs	r0, r4, r7
+     368:	bl	2c0 <put_u>
+     36c:	ldr	r0, [pc, #80]	@ (3c0 <main+0x9c>)
+     36e:	bl	53c <hal_uart_puts>
+     372:	ldr	r0, [pc, #80]	@ (3c4 <main+0xa0>)
+=== v2_fixed -O2: main() wait loop
+000003f8 <main>:
+     3f8:	stmdb	sp!, {r4, r5, r6, r7, r8, lr}
+     3fc:	bl	638 <hal_init>
+     400:	bl	a0 <app_init>
+     404:	ldr	r0, [pc, #128]	@ (488 <main+0x90>)
+     406:	bl	64c <hal_uart_puts>
+     40a:	movs	r5, #0
+     40c:	bl	680 <hal_timer_read>
+     410:	mov	r6, r5
+     412:	mov	r7, r0
+     414:	ldr	r4, [pc, #116]	@ (48c <main+0x94>)
+     416:	ldrb	r3, [r4, #0]
+     418:	cmp	r3, #0
+     41a:	beq.n	416 <main+0x1e>
+     41c:	mov	r0, r5
+     41e:	movs	r1, #0
+     420:	adds	r5, #1
+     422:	strb	r6, [r4, #0]
+     424:	bl	c4 <app_step>
+     428:	cmp.w	r5, #512	@ 0x200
+     42c:	bne.n	416 <main+0x1e>
+     42e:	bl	680 <hal_timer_read>
+     432:	mov	r4, r0
+     434:	ldr	r0, [pc, #88]	@ (490 <main+0x98>)
+     436:	bl	64c <hal_uart_puts>
+     43a:	subs	r0, r4, r7
+     43c:	bl	394 <put_u>
+     440:	ldr	r0, [pc, #80]	@ (494 <main+0x9c>)
+     442:	bl	64c <hal_uart_puts>
+     446:	ldr	r0, [pc, #80]	@ (498 <main+0xa0>)

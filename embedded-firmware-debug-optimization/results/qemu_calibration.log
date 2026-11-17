@@ -1,0 +1,3 @@
+nop2000 ticks=1614
+nop6000 ticks=4814
+timer_read_overhead_total_512=6150

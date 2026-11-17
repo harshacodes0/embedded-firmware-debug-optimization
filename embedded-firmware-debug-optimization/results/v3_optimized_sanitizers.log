@@ -1,0 +1,51 @@
+[PASS] ringbuf_fifo
+[PASS] ringbuf_overwrite
+[PASS] filter_constant
+[PASS] filter_fullscale
+[PASS] thermo_fault
+    max error 0.1 C at adc=146
+[PASS] thermo_accuracy
+[PASS] alarm_negative_temp
+[PASS] alarm_hysteresis
+[PASS] cmd_set_valid
+[PASS] cmd_set_garbage
+[PASS] cmd_set_range
+[PASS] cmd_long_input
+[PASS] cmd_get
+0,-8.0,OK
+16,-7.9,OK
+32,-7.4,OK
+48,-6.1,OK
+64,-4.0,OK
+80,-1.3,OK
+96,2.2,OK
+OK
+112,6.2,OK
+128,10.6,OK
+144,15.3,OK
+160,20.3,OK
+176,25.2,OK
+192,30.2,OK
+ERR
+208,34.9,OK
+224,39.1,ALARM
+240,42.9,ALARM
+256,46.2,ALARM
+THR=38.0
+272,48.8,ALARM
+288,50.7,ALARM
+304,51.7,ALARM
+320,52.0,ALARM
+336,52.1,ALARM
+352,52.0,ALARM
+368,51.3,ALARM
+384,49.4,ALARM
+400,46.0,ALARM
+416,41.6,ALARM
+432,36.5,ALARM
+448,31.3,OK
+464,26.2,OK
+480,21.8,OK
+496,18.2,OK
+[PASS] app_trace
+14 test(s), 0 failed

@@ -1,0 +1,117 @@
+{
+ "trace_err_v1_buggy": {
+  "max_abs_x10": 3216.1029934526828,
+  "mean_abs_x10": 289.7700907840769,
+  "within_0_1C_pct": 4.1015625,
+  "within_0_15C_pct": 4.4921875
+ },
+ "trace_err_v2_fixed": {
+  "max_abs_x10": 0.4993239028217431,
+  "mean_abs_x10": 0.24661515059720984,
+  "within_0_1C_pct": 100.0,
+  "within_0_15C_pct": 100.0
+ },
+ "trace_err_v3_optimized": {
+  "max_abs_x10": 0.960456117288345,
+  "mean_abs_x10": 0.3444543527672732,
+  "within_0_1C_pct": 100.0,
+  "within_0_15C_pct": 100.0
+ },
+ "alarm_v1_buggy": {
+  "alarm_samples": 496,
+  "first_alarm": 0,
+  "false_alarms_first_100": 100
+ },
+ "alarm_v2_fixed": {
+  "alarm_samples": 214,
+  "first_alarm": 220,
+  "false_alarms_first_100": 0
+ },
+ "alarm_v3_optimized": {
+  "alarm_samples": 214,
+  "first_alarm": 220,
+  "false_alarms_first_100": 0
+ },
+ "state_mismatch_v2_v3": 0,
+ "v2_fixed-O0": {
+  "acq": 113.638671875,
+  "filt": 459.8828125,
+  "conv": 1868.939453125,
+  "alarm": 41.51171875,
+  "log": 212.212890625,
+  "total": 2696.185546875,
+  "flash": 10636,
+  "ram": 356
+ },
+ "v2_fixed-O2": {
+  "acq": 44.98046875,
+  "filt": 121.03125,
+  "conv": 1798.607421875,
+  "alarm": 14.939453125,
+  "log": 162.267578125,
+  "total": 2141.826171875,
+  "flash": 9784,
+  "ram": 340
+ },
+ "v2_fixed-Os": {
+  "acq": 49.98828125,
+  "filt": 174.041015625,
+  "conv": 1799.5,
+  "alarm": 15.39453125,
+  "log": 168.546875,
+  "total": 2207.470703125,
+  "flash": 9636,
+  "ram": 336
+ },
+ "v3_optimized-O0": {
+  "acq": 110.37890625,
+  "filt": 62.353515625,
+  "conv": 62.369140625,
+  "alarm": 41.50390625,
+  "log": 92.283203125,
+  "total": 368.888671875,
+  "flash": 4968,
+  "ram": 264
+ },
+ "v3_optimized-O2": {
+  "acq": 39.982421875,
+  "filt": 23.11328125,
+  "conv": 23.30078125,
+  "alarm": 15.0,
+  "log": 31.017578125,
+  "total": 132.4140625,
+  "flash": 4544,
+  "ram": 248
+ },
+ "v3_optimized-Os": {
+  "acq": 49.330078125,
+  "filt": 24.03125,
+  "conv": 23.361328125,
+  "alarm": 15.19921875,
+  "log": 37.328125,
+  "total": 149.25,
+  "flash": 4000,
+  "ram": 248
+ },
+ "speedup_total_O2": 16.17521682695144,
+ "speedup_conv_O2": 77.19086336965633,
+ "speedup_filt_O2": 5.2364373838093625,
+ "flash_reduction_O2_pct": 53.556827473426004,
+ "cpu_load_1kHz_pct": {
+  "v2_fixed-O0": 22.468212890625,
+  "v2_fixed-O2": 17.848551432291668,
+  "v2_fixed-Os": 18.395589192708332,
+  "v3_optimized-O0": 3.074072265625,
+  "v3_optimized-O2": 1.1034505208333334,
+  "v3_optimized-Os": 1.2437500000000001
+ },
+ "lut_max_err_C": 0.11066138781659447,
+ "lut_mean_err_C": 0.031768145902064275,
+ "lut_bytes": 514,
+ "tests_pass": {
+  "v1_buggy": 4,
+  "v2_fixed": 14,
+  "v3_optimized": 14
+ },
+ "tests_total": 14
+}

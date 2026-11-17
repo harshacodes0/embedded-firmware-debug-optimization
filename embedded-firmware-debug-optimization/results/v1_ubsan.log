@@ -1,0 +1,6 @@
+v1_buggy/ringbuf.c:4:11: runtime error: index 64 out of bounds for type 'uint16_t [64]'
+    expected: v == 1000 + i  (i=64 got 1004)
+[FAIL] ringbuf_fifo
+1 test(s), 1 failed
+v1_buggy/ringbuf.c:4:11: runtime error: index 64 out of bounds for type 'uint16_t [64]'
+*** buffer overflow detected ***: terminated

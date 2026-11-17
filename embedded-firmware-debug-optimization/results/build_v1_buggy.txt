@@ -1,0 +1,28 @@
+v1_buggy/alarm.c: In function 'alarm_update':
+v1_buggy/alarm.c:8:15: warning: comparison of integer expressions of different signedness: 'int' and 'uint32_t' {aka 'unsigned int'} [-Wsign-compare]
+    8 |     if (t_x10 > thr_x10) state = 1;              /* BUG 5: signed/unsigned compare          */
+      |               ^
+v1_buggy/alarm.c:9:20: warning: comparison of integer expressions of different signedness: 'int' and 'uint32_t' {aka 'unsigned int'} [-Wsign-compare]
+    9 |     else if (t_x10 < thr_x10 - 20) state = 0;
+      |                    ^
+v1_buggy/alarm.c:10:12: warning: 'state' may be used uninitialized [-Wmaybe-uninitialized]
+   10 |     return state;
+      |            ^~~~~
+v1_buggy/alarm.c:7:9: note: 'state' was declared here
+    7 |     int state;                                   /* BUG 4: uninitialised in hysteresis band */
+      |         ^~~~~
+v1_buggy/app.c: In function 'app_step':
+v1_buggy/app.c:29:33: warning: '%s' directive writing between 2 and 5 bytes into a region of size between 0 and 10 [-Wformat-overflow=]
+   29 |         sprintf(line, "%d,%d.%d,%s\r\n", i, tx10 / 10, abs(tx10 % 10), al ? "ALARM" : "OK");  /* BUG 9 */
+      |                                 ^~
+In file included from /usr/include/stdio.h:980,
+                 from v1_buggy/app.c:1:
+In function 'sprintf',
+    inlined from 'app_step' at v1_buggy/app.c:29:9:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:30:10: note: '__builtin___sprintf_chk' output between 11 and 33 bytes into a destination of size 16
+   30 |   return __builtin___sprintf_chk (__s, __USE_FORTIFY_LEVEL - 1,
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   31 |                                   __glibc_objsize (__s), __fmt,
+      |                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   32 |                                   __va_arg_pack ());
+      |                                   ~~~~~~~~~~~~~~~~~

@@ -1,0 +1,1 @@
+ns/sample: acq=35.2 filt=31.8 conv=35.3 alarm=32.5 log=37.8 total=172.5

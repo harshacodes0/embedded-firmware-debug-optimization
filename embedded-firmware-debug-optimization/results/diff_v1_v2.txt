@@ -1,0 +1,169 @@
+--- v1_buggy/ringbuf.c	2026-11-11 15:29:34.363719601 +0000
++++ v2_fixed/ringbuf.c	2026-11-11 15:29:58.343265018 +0000
+@@ -3,15 +3,15 @@
+ void rb_push(rb_t *r, uint16_t v) {
+     r->buf[r->head] = v;
+     r->head++;
+-    if (r->head > RB_SIZE) r->head = 0;          /* BUG 1: should be >= */
++    if (r->head >= RB_SIZE) r->head = 0;         /* FIX 1: >= */
+     if (r->count < RB_SIZE) r->count++;
+-    else { r->tail++; if (r->tail > RB_SIZE) r->tail = 0; }
++    else { r->tail++; if (r->tail >= RB_SIZE) r->tail = 0; }
+ }
+ int rb_pop(rb_t *r, uint16_t *out) {
+     if (r->count == 0) return 0;
+     *out = r->buf[r->tail];
+     r->tail++;
+-    if (r->tail > RB_SIZE) r->tail = 0;          /* BUG 1 (same mistake) */
++    if (r->tail >= RB_SIZE) r->tail = 0;
+     r->count--;
+     return 1;
+ }
+--- v1_buggy/filter.c	2026-11-11 15:29:34.364511599 +0000
++++ v2_fixed/filter.c	2026-11-11 15:29:58.344082957 +0000
+@@ -4,10 +4,9 @@
+ void ma_init(void) { pos = 0; filled = 0; }
+ uint16_t ma_update(uint16_t x) {
+     win[pos] = x;
+-    pos = (pos + 1) % MA_WIN;
++    pos = (uint8_t)((pos + 1) % MA_WIN);
+     if (filled < MA_WIN) filled++;
+-    uint16_t sum = 0;                            /* BUG 2: 32*4095 overflows 16 bits */
+-    for (int i = 0; i < filled; i++)             /* O(N) every sample                */
+-        sum += win[i];
+-    return sum / filled;                         /* run-time division                */
++    uint32_t sum = 0;                            /* FIX 2: 32-bit accumulator */
++    for (int i = 0; i < filled; i++) sum += win[i];
++    return (uint16_t)(sum / filled);
+ }
+--- v1_buggy/thermo.c	2026-11-11 15:29:34.365293322 +0000
++++ v2_fixed/thermo.c	2026-11-11 15:29:58.345023596 +0000
+@@ -1,10 +1,11 @@
+ #include <math.h>
+ #include "fw.h"
+-/* NTC 10k, B=3950, 10k pull-up, 12-bit ADC (NTC on the low side) */
+ int thermo_adc_to_x10(uint16_t adc, int *t_x10) {
+-    float r  = 10000.0f * (float)adc / (4095.0f - (float)adc);  /* BUG 3: /0 at 4095 */
+-    float lr = logf(r / 10000.0f);                              /* BUG 3: log(0)     */
++    if (adc <= ADC_FAULT_LO || adc >= ADC_FAULT_HI) { *t_x10 = 0; return -1; }   /* FIX 3 */
++    float r  = 10000.0f * (float)adc / (4095.0f - (float)adc);
++    float lr = logf(r / 10000.0f);
+     float tc = 1.0f / (1.0f / 298.15f + lr / 3950.0f) - 273.15f;
+-    *t_x10 = (int)(tc * 10.0f);                                 /* BUG 3: inf -> int */
++    float x  = tc * 10.0f;
++    *t_x10 = (int)(x >= 0.0f ? x + 0.5f : x - 0.5f);        /* round to nearest */
+     return 0;
+ }
+--- v1_buggy/alarm.c	2026-11-11 15:29:34.366094298 +0000
++++ v2_fixed/alarm.c	2026-11-11 15:29:58.345818725 +0000
+@@ -1,11 +1,12 @@
+ #include "fw.h"
+-static uint32_t thr_x10 = 400;                   /* 40.0 C */
+-void alarm_init(void) { thr_x10 = 400; }
++#define HYST_X10 20
++static int thr_x10 = 400;                        /* FIX 5: signed type */
++static int state;                                /* FIX 4: persistent, initialised */
++void alarm_init(void) { thr_x10 = 400; state = 0; }
+ void alarm_set_thr_x10(int v) { thr_x10 = v; }
+-int  alarm_get_thr_x10(void)  { return (int)thr_x10; }
++int  alarm_get_thr_x10(void)  { return thr_x10; }
+ int alarm_update(int t_x10) {
+-    int state;                                   /* BUG 4: uninitialised in hysteresis band */
+-    if (t_x10 > thr_x10) state = 1;              /* BUG 5: signed/unsigned compare          */
+-    else if (t_x10 < thr_x10 - 20) state = 0;
+-    return state;
++    if (t_x10 > thr_x10) state = 1;
++    else if (t_x10 < thr_x10 - HYST_X10) state = 0;
++    return state;                                /* inside the band: keep previous state */
+ }
+--- v1_buggy/cmd.c	2026-11-11 15:29:34.366854247 +0000
++++ v2_fixed/cmd.c	2026-11-11 15:29:58.346576647 +0000
+@@ -1,21 +1,23 @@
+ #include <stdio.h>
+-#include <stdlib.h>
+ #include <string.h>
+ #include "fw.h"
++/* parse "SET <0..125>" strictly; returns 0 ok, -1 error */
++static int parse_thr(const char *s, int *out) {
++    int v = 0, digits = 0;
++    while (*s >= '0' && *s <= '9') { v = v * 10 + (*s - '0'); if (++digits > 3) return -1; s++; }
++    if (digits == 0 || *s != '\0' || v > 125) return -1;     /* FIX 6/7 */
++    *out = v; return 0;
++}
++static void put(char *resp, size_t n, const char *s) { snprintf(resp, n, "%s", s); }   /* FIX 8 */
+ int cmd_process(const char *line, char *resp, size_t n) {
+-    (void)n;
+-    char arg[8];
++    int v;
+     if (strncmp(line, "SET ", 4) == 0) {
+-        strcpy(arg, line + 4);                   /* BUG 6: unbounded copy        */
+-        alarm_set_thr_x10(atoi(arg) * 10);       /* BUG 7: no validation / range */
+-        strcpy(resp, "OK\r\n");
+-        return 0;
++        if (parse_thr(line + 4, &v) != 0) { put(resp, n, "ERR\r\n"); return -1; }
++        alarm_set_thr_x10(v * 10); put(resp, n, "OK\r\n"); return 0;
+     }
+     if (strcmp(line, "GET") == 0) {
+         int t = alarm_get_thr_x10();
+-        sprintf(resp, "THR=%d.%d\r\n", t / 10, t % 10);   /* BUG 8: unbounded */
+-        return 0;
++        snprintf(resp, n, "THR=%d.%d\r\n", t / 10, t % 10); return 0;
+     }
+-    strcpy(resp, "ERR\r\n");
+-    return -1;
++    put(resp, n, "ERR\r\n"); return -1;
+ }
+--- v1_buggy/app.c	2026-11-11 15:29:34.367576701 +0000
++++ v2_fixed/app.c	2026-11-11 15:29:58.347360070 +0000
+@@ -4,13 +4,16 @@
+ #include "hal.h"
+ uint32_t g_prof[N_STAGE];
+ static rb_t rb;
++static uint16_t last_good = 2048;
+ static const struct { int at; const char *cmd; } script[] = {
+     { 100, "SET 38" }, { 200, "SET abc" }, { 260, "GET" }, { -1, 0 } };
+-void app_init(void) { rb_init(&rb); ma_init(); alarm_init(); }
++void app_init(void) { rb_init(&rb); ma_init(); alarm_init(); last_good = 2048; }
+ void app_step(int i, app_out_t *o) {
+     uint32_t t0 = hal_timer_read(), t1;
+     uint16_t raw = hal_adc_read(), s = 0;
+-    rb_push(&rb, raw); rb_pop(&rb, &s);
++    int fault = (raw <= ADC_FAULT_LO || raw >= ADC_FAULT_HI);     /* FIX 3: reject faulty sample */
++    rb_push(&rb, fault ? last_good : raw); rb_pop(&rb, &s);
++    if (!fault) last_good = raw;
+     t1 = hal_timer_read(); g_prof[S_ACQ] += t1 - t0; t0 = t1;
+ 
+     uint16_t avg = ma_update(s);
+@@ -25,10 +28,12 @@
+     for (int k = 0; script[k].at >= 0; k++)
+         if (script[k].at == i) { char resp[16]; cmd_process(script[k].cmd, resp, sizeof resp); hal_uart_puts(resp); }
+     if (i % 16 == 0) {
+-        char line[16];
+-        sprintf(line, "%d,%d.%d,%s\r\n", i, tx10 / 10, abs(tx10 % 10), al ? "ALARM" : "OK");  /* BUG 9 */
++        char line[32];                                            /* FIX 9 */
++        const char *sg = tx10 < 0 ? "-" : "";                     /* FIX 9: keep sign for -0.x */
++        int a = abs(tx10);
++        snprintf(line, sizeof line, "%d,%s%d.%d,%s%s\r\n", i, sg, a / 10, a % 10, al ? "ALARM" : "OK", fault ? ",FLT" : "");
+         hal_uart_puts(line);
+     }
+     t1 = hal_timer_read(); g_prof[S_LOG] += t1 - t0;
+-    if (o) { o->raw = raw; o->avg = avg; o->t_x10 = tx10; o->alarm = al; o->fault = 0; }
++    if (o) { o->raw = raw; o->avg = avg; o->t_x10 = tx10; o->alarm = al; o->fault = fault; }
+ }
+--- v1_buggy/main.c	2026-11-12 04:40:41.259906827 +0000
++++ v2_fixed/main.c	2026-11-12 04:40:41.260298716 +0000
+@@ -1,12 +1,12 @@
+ #include "fw.h"
+ #include "hal.h"
+ #include "adc_trace.h"
+-static uint8_t sample_due;                       /* BUG 10: shared with ISR but not volatile */
++static volatile uint8_t sample_due;          /* FIX 10: ISR-shared flag is volatile */
+ void app_tick(void) { sample_due = 1; }          /* called from SysTick ISR                  */
+ static void put_u(uint32_t v) { char b[11]; int n = 0; do { b[n++] = '0' + v % 10; v /= 10; } while (v); char o[12]; int k = 0; while (n) o[k++] = b[--n]; o[k] = 0; hal_uart_puts(o); }
+ int main(void) {
+     hal_init(); app_init();
+-    hal_uart_puts("# v1 start\r\n");
++    hal_uart_puts("# v2 start\r\n");
+     uint32_t t0 = hal_timer_read();
+     for (int i = 0; i < TRACE_LEN; i++) {
+         while (!sample_due) { }                  /* wait for 1 kHz tick */

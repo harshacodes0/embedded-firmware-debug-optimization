@@ -1,0 +1,4 @@
+t_x10=  -5  v1 prints "0.5"
+t_x10= -12  v1 prints "-1.2"
+t_x10= -80  v1 prints "-8.0"
+t_x10=   5  v1 prints "0.5"

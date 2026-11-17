@@ -1,0 +1,26 @@
+*** buffer overflow detected ***: terminated
+=================================================================
+==1414==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x7f8d81203870 at pc 0x7f8d836ced69 bp 0x7ffdbebb5d70 sp 0x7ffdbebb5500
+WRITE of size 17 at 0x7f8d81203870 thread T0
+    #0 0x7f8d836ced68 in vsprintf ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors.inc:1671
+    #1 0x7f8d836d0643 in __sprintf_chk ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors.inc:1719
+    #2 0x5636f88bd963 in sprintf /usr/include/x86_64-linux-gnu/bits/stdio2.h:30
+    #3 0x5636f88bd963 in app_step v1_buggy/app.c:29
+    #4 0x5636f88be5e2 in t_app_trace tests/test_all.c:107
+    #5 0x5636f88c00fc in main tests/test_all.c:144
+    #6 0x7f8d8322a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #7 0x7f8d8322a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #8 0x5636f88bd484 in _start (/home/claude/proj/build/t_v1_asan+0x4484) (BuildId: 1c0fdc2a3479e8636610042425d4b810f7dda995)
+
+Address 0x7f8d81203870 is located in stack of thread T0 at offset 112 in frame
+    #0 0x5636f88bd600 in app_step v1_buggy/app.c:10
+
+  This frame has 4 object(s):
+    [32, 34) 's' (line 12)
+    [48, 52) 'tx10' (line 19)
+    [64, 80) 'resp' (line 26)
+    [96, 112) 'line' (line 28) <== Memory access at offset 112 overflows this variable
+HINT: this may be a false positive if your program uses some custom stack unwind mechanism, swapcontext or vfork
+      (longjmp and C++ exceptions *are* supported)
+SUMMARY: AddressSanitizer: stack-buffer-overflow ../../../../src/libsanitizer/sanitizer_common/sanitizer_common_interceptors.inc:1671 in vsprintf
+Shadow bytes around the buggy address:

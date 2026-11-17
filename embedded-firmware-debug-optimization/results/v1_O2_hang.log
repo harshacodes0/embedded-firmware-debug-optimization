@@ -1,0 +1,4 @@
+--- v1 -O2 in QEMU (8 s timeout):
+Timer with period zero, disabling
+# v1 start
+qemu-system-arm: terminating on signal 15 from pid 1765 (timeout)

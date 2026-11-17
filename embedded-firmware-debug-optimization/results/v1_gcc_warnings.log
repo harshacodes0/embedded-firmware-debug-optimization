@@ -1,0 +1,7 @@
+v1_buggy/alarm.c: In function 'alarm_update':
+v1_buggy/alarm.c:8:15: warning: comparison of integer expressions of different signedness: 'int' and 'uint32_t' {aka 'unsigned int'} [-Wsign-compare]
+    8 |     if (t_x10 > thr_x10) state = 1;              /* BUG 5: signed/unsigned compare          */
+      |               ^
+v1_buggy/alarm.c:9:20: warning: comparison of integer expressions of different signedness: 'int' and 'uint32_t' {aka 'unsigned int'} [-Wsign-compare]
+    9 |     else if (t_x10 < thr_x10 - 20) state = 0;
+      |                    ^

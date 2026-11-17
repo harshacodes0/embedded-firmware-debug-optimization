@@ -1,0 +1,160 @@
+--- v2_fixed/ringbuf.c	2026-11-11 15:29:58.343265018 +0000
++++ v3_optimized/ringbuf.c	2026-11-12 04:40:10.569077349 +0000
+@@ -1,17 +1,17 @@
+ #include "fw.h"
++/* OPT: RB_SIZE is a power of two -> wrap with a mask instead of compare/branch */
++#define MASK (RB_SIZE - 1u)
+ void rb_init(rb_t *r) { r->head = 0; r->tail = 0; r->count = 0; }
+ void rb_push(rb_t *r, uint16_t v) {
+     r->buf[r->head] = v;
+-    r->head++;
+-    if (r->head >= RB_SIZE) r->head = 0;         /* FIX 1: >= */
++    r->head = (uint8_t)((r->head + 1u) & MASK);
+     if (r->count < RB_SIZE) r->count++;
+-    else { r->tail++; if (r->tail >= RB_SIZE) r->tail = 0; }
++    else r->tail = (uint8_t)((r->tail + 1u) & MASK);
+ }
+ int rb_pop(rb_t *r, uint16_t *out) {
+     if (r->count == 0) return 0;
+     *out = r->buf[r->tail];
+-    r->tail++;
+-    if (r->tail >= RB_SIZE) r->tail = 0;
++    r->tail = (uint8_t)((r->tail + 1u) & MASK);
+     r->count--;
+     return 1;
+ }
+--- v2_fixed/filter.c	2026-11-11 15:29:58.344082957 +0000
++++ v3_optimized/filter.c	2026-11-12 04:40:10.570231037 +0000
+@@ -1,12 +1,13 @@
+ #include "fw.h"
++/* OPT: running sum -> O(1) per sample, no loop, shift instead of divide once full */
+ static uint16_t win[MA_WIN];
++static uint32_t sum;
+ static uint8_t  pos, filled;
+-void ma_init(void) { pos = 0; filled = 0; }
++void ma_init(void) { pos = 0; filled = 0; sum = 0; }
+ uint16_t ma_update(uint16_t x) {
+-    win[pos] = x;
+-    pos = (uint8_t)((pos + 1) % MA_WIN);
+-    if (filled < MA_WIN) filled++;
+-    uint32_t sum = 0;                            /* FIX 2: 32-bit accumulator */
+-    for (int i = 0; i < filled; i++) sum += win[i];
+-    return (uint16_t)(sum / filled);
++    if (filled < MA_WIN) { sum += x; filled++; win[pos] = x; pos = (uint8_t)((pos + 1u) & (MA_WIN - 1u));
++        return (uint16_t)(sum / filled); }              /* warm-up only (first 32 samples) */
++    sum += x; sum -= win[pos]; win[pos] = x;
++    pos = (uint8_t)((pos + 1u) & (MA_WIN - 1u));
++    return (uint16_t)(sum >> 5);                        /* MA_WIN == 32 */
+ }
+--- v2_fixed/thermo.c	2026-11-11 15:29:58.345023596 +0000
++++ v3_optimized/thermo.c	2026-11-12 04:40:10.571248199 +0000
+@@ -1,11 +1,11 @@
+-#include <math.h>
+ #include "fw.h"
++#include "thermo_lut.h"
++/* OPT: 257-entry int16 table (514 B in flash) + linear interpolation replaces
++   float division + logf() + soft-float emulation on an FPU-less Cortex-M3.   */
+ int thermo_adc_to_x10(uint16_t adc, int *t_x10) {
+-    if (adc <= ADC_FAULT_LO || adc >= ADC_FAULT_HI) { *t_x10 = 0; return -1; }   /* FIX 3 */
+-    float r  = 10000.0f * (float)adc / (4095.0f - (float)adc);
+-    float lr = logf(r / 10000.0f);
+-    float tc = 1.0f / (1.0f / 298.15f + lr / 3950.0f) - 273.15f;
+-    float x  = tc * 10.0f;
+-    *t_x10 = (int)(x >= 0.0f ? x + 0.5f : x - 0.5f);        /* round to nearest */
++    if (adc <= ADC_FAULT_LO || adc >= ADC_FAULT_HI) { *t_x10 = 0; return -1; }
++    unsigned i = adc >> LUT_SHIFT, f = adc & ((1u << LUT_SHIFT) - 1u);
++    int a = g_lut[i], b = g_lut[i + 1];
++    *t_x10 = a + (((b - a) * (int)f + (1 << (LUT_SHIFT - 1))) >> LUT_SHIFT);
+     return 0;
+ }
+--- v2_fixed/cmd.c	2026-11-11 15:29:58.346576647 +0000
++++ v3_optimized/cmd.c	2026-11-12 04:40:10.572313738 +0000
+@@ -1,23 +1,25 @@
+-#include <stdio.h>
+-#include <string.h>
+ #include "fw.h"
+-/* parse "SET <0..125>" strictly; returns 0 ok, -1 error */
++/* OPT: no stdio/snprintf -> removes newlib-nano printf (~KBs of flash) */
++static size_t cat(char *d, size_t n, size_t k, const char *s) { while (*s && k + 1 < n) d[k++] = *s++; d[k] = 0; return k; }
+ static int parse_thr(const char *s, int *out) {
+     int v = 0, digits = 0;
+     while (*s >= '0' && *s <= '9') { v = v * 10 + (*s - '0'); if (++digits > 3) return -1; s++; }
+-    if (digits == 0 || *s != '\0' || v > 125) return -1;     /* FIX 6/7 */
++    if (digits == 0 || *s != '\0' || v > 125) return -1;
+     *out = v; return 0;
+ }
+-static void put(char *resp, size_t n, const char *s) { snprintf(resp, n, "%s", s); }   /* FIX 8 */
++static int starts(const char *s, const char *p) { while (*p) if (*s++ != *p++) return 0; return 1; }
+ int cmd_process(const char *line, char *resp, size_t n) {
+     int v;
+-    if (strncmp(line, "SET ", 4) == 0) {
+-        if (parse_thr(line + 4, &v) != 0) { put(resp, n, "ERR\r\n"); return -1; }
+-        alarm_set_thr_x10(v * 10); put(resp, n, "OK\r\n"); return 0;
++    if (starts(line, "SET ")) {
++        if (parse_thr(line + 4, &v) != 0) { cat(resp, n, 0, "ERR\r\n"); return -1; }
++        alarm_set_thr_x10(v * 10); cat(resp, n, 0, "OK\r\n"); return 0;
+     }
+-    if (strcmp(line, "GET") == 0) {
+-        int t = alarm_get_thr_x10();
+-        snprintf(resp, n, "THR=%d.%d\r\n", t / 10, t % 10); return 0;
++    if (line[0]=='G' && line[1]=='E' && line[2]=='T' && line[3]==0) {
++        int t = alarm_get_thr_x10(); char d[4]; size_t k = cat(resp, n, 0, "THR=");
++        int ip = t / 10; d[0] = (char)('0' + ip / 100); d[1] = (char)('0' + (ip / 10) % 10); d[2] = (char)('0' + ip % 10); d[3] = 0;
++        const char *p = d; while (p[0] == '0' && p[1]) p++;
++        k = cat(resp, n, k, p); d[0] = '.'; d[1] = (char)('0' + t % 10); d[2] = 0;
++        k = cat(resp, n, k, d); cat(resp, n, k, "\r\n"); return 0;
+     }
+-    put(resp, n, "ERR\r\n"); return -1;
++    cat(resp, n, 0, "ERR\r\n"); return -1;
+ }
+--- v2_fixed/app.c	2026-11-11 15:29:58.347360070 +0000
++++ v3_optimized/app.c	2026-11-12 04:40:10.573356284 +0000
+@@ -1,5 +1,3 @@
+-#include <stdio.h>
+-#include <stdlib.h>
+ #include "fw.h"
+ #include "hal.h"
+ uint32_t g_prof[N_STAGE];
+@@ -8,10 +6,13 @@
+ static const struct { int at; const char *cmd; } script[] = {
+     { 100, "SET 38" }, { 200, "SET abc" }, { 260, "GET" }, { -1, 0 } };
+ void app_init(void) { rb_init(&rb); ma_init(); alarm_init(); last_good = 2048; }
++/* OPT: tiny formatter (no printf): writes "<i>,<-t.t>,<OK|ALARM>[,FLT]\r\n" */
++static char *put_u(char *p, unsigned v) { char t[10]; int n = 0; do { t[n++] = (char)('0' + v % 10); v /= 10; } while (v); while (n) *p++ = t[--n]; return p; }
++static char *put_s(char *p, const char *s) { while (*s) *p++ = *s++; return p; }
+ void app_step(int i, app_out_t *o) {
+     uint32_t t0 = hal_timer_read(), t1;
+     uint16_t raw = hal_adc_read(), s = 0;
+-    int fault = (raw <= ADC_FAULT_LO || raw >= ADC_FAULT_HI);     /* FIX 3: reject faulty sample */
++    int fault = (raw <= ADC_FAULT_LO || raw >= ADC_FAULT_HI);
+     rb_push(&rb, fault ? last_good : raw); rb_pop(&rb, &s);
+     if (!fault) last_good = raw;
+     t1 = hal_timer_read(); g_prof[S_ACQ] += t1 - t0; t0 = t1;
+@@ -28,11 +29,11 @@
+     for (int k = 0; script[k].at >= 0; k++)
+         if (script[k].at == i) { char resp[16]; cmd_process(script[k].cmd, resp, sizeof resp); hal_uart_puts(resp); }
+     if (i % 16 == 0) {
+-        char line[32];                                            /* FIX 9 */
+-        const char *sg = tx10 < 0 ? "-" : "";                     /* FIX 9: keep sign for -0.x */
+-        int a = abs(tx10);
+-        snprintf(line, sizeof line, "%d,%s%d.%d,%s%s\r\n", i, sg, a / 10, a % 10, al ? "ALARM" : "OK", fault ? ",FLT" : "");
+-        hal_uart_puts(line);
++        char line[32], *p = line; unsigned a = (unsigned)(tx10 < 0 ? -tx10 : tx10);
++        p = put_u(p, (unsigned)i); *p++ = ','; if (tx10 < 0) *p++ = '-';
++        p = put_u(p, a / 10); *p++ = '.'; *p++ = (char)('0' + a % 10); *p++ = ',';
++        p = put_s(p, al ? "ALARM" : "OK"); if (fault) p = put_s(p, ",FLT");
++        p = put_s(p, "\r\n"); *p = 0; hal_uart_puts(line);
+     }
+     t1 = hal_timer_read(); g_prof[S_LOG] += t1 - t0;
+     if (o) { o->raw = raw; o->avg = avg; o->t_x10 = tx10; o->alarm = al; o->fault = fault; }
+--- v2_fixed/main.c	2026-11-12 04:40:41.260298716 +0000
++++ v3_optimized/main.c	2026-11-12 04:40:41.260599861 +0000
+@@ -6,7 +6,7 @@
+ static void put_u(uint32_t v) { char b[11]; int n = 0; do { b[n++] = '0' + v % 10; v /= 10; } while (v); char o[12]; int k = 0; while (n) o[k++] = b[--n]; o[k] = 0; hal_uart_puts(o); }
+ int main(void) {
+     hal_init(); app_init();
+-    hal_uart_puts("# v2 start\r\n");
++    hal_uart_puts("# v3 start\r\n");
+     uint32_t t0 = hal_timer_read();
+     for (int i = 0; i < TRACE_LEN; i++) {
+         while (!sample_due) { }                  /* wait for 1 kHz tick */

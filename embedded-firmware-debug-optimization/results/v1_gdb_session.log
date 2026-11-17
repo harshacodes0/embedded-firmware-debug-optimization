@@ -1,0 +1,17 @@
+Reset_Handler () at common/startup.c:22
+22	void Reset_Handler(void) {
+Breakpoint 1 at 0x5e6: file v1_buggy/ringbuf.c, line 4.
+
+Breakpoint 1, rb_push (r=0x2000007c <rb>, v=3212) at v1_buggy/ringbuf.c:4
+4	    r->buf[r->head] = v;
+--- stopped: head==64 (should be impossible: valid indices are 0..63)
+#0  rb_push (r=0x2000007c <rb>, v=3212) at v1_buggy/ringbuf.c:4
+#1  0x00000106 in app_step (i=64, o=0x0 <g_vectors>) at v1_buggy/app.c:13
+#2  0x00000510 in main () at v1_buggy/main.c:14
+$1 = {buf = {3434, 3435, 3434, 3434, 3432, 3433, 3434, 3433, 3433, 3431, 3430, 3429, 3425, 3427, 3425, 3424, 3419, 3417, 3417, 3415, 3414, 3412, 3410, 3406, 3405, 3403, 3399, 3399, 3395, 3393, 3387, 3384, 3381, 3378, 3375, 3371, 3366, 3362, 3358, 3357, 3350, 3347, 3343, 3335, 3333, 3330, 3320, 3317, 3313, 3306, 3303, 3296, 3289, 3286, 3280, 3274, 3269, 3261, 3254, 3246, 3242, 3233, 3227, 3218}, head = 64 '@', tail = 64 '@', count = 0 '\000'}
+--- executing the store r->buf[r->head] = v  (v = 3212)
+5	    r->head++;
+$2 = {buf = {3434, 3435, 3434, 3434, 3432, 3433, 3434, 3433, 3433, 3431, 3430, 3429, 3425, 3427, 3425, 3424, 3419, 3417, 3417, 3415, 3414, 3412, 3410, 3406, 3405, 3403, 3399, 3399, 3395, 3393, 3387, 3384, 3381, 3378, 3375, 3371, 3366, 3362, 3358, 3357, 3350, 3347, 3343, 3335, 3333, 3330, 3320, 3317, 3313, 3306, 3303, 3296, 3289, 3286, 3280, 3274, 3269, 3261, 3254, 3246, 3242, 3233, 3227, 3218}, head = 140 '\214', tail = 12 '\f', count = 0 '\000'}
+--- head/tail were overwritten by the sample bytes: head=140 tail=12
+Line 5 of "v1_buggy/ringbuf.c" starts at address 0x5f6 <rb_push+28> and ends at 0x5fc <rb_push+34>.
+[Inferior 1 (process 1) detached]
